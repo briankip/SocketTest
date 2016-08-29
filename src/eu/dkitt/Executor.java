@@ -19,21 +19,21 @@ public class Executor {
 	
 	boolean bSimulator;
 	Properties properties;
-	Socket clientSocket;
+	Socket socket;
 	
 	InputStream inStream;
 	OutputStream outStream;
 	
-	public Executor(Socket clientSocket, Properties properties, boolean bSimulator) {
+	public Executor(Socket socket, Properties properties, boolean bSimulator) {
 		this.properties = properties;
-		this.clientSocket = clientSocket;
+		this.socket = socket;
 		this.bSimulator = bSimulator; 
 	}
 	
 	public void execute() throws IOException {
 		
-		inStream = clientSocket.getInputStream();
-		outStream = clientSocket.getOutputStream();
+		inStream = socket.getInputStream();
+		outStream = socket.getOutputStream();
 		
 		while(true) {
 			if(inStream.available()>0){

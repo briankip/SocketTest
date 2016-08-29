@@ -1,3 +1,6 @@
+/*
+ * Here we added a comment.
+ */
 package eu.dkitt;
 
 import java.io.FileNotFoundException;

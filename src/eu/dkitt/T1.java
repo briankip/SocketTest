@@ -9,7 +9,11 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.Properties;
 
+
 public class T1 {
+	
+	public static	final	String OPTION_PORT = "port"; 
+	public static	final	String OPTION_SIMUL = "simul"; 
 	
 	static class UsageException extends Exception {
 		
@@ -52,14 +56,14 @@ public class T1 {
 					}
 					i++;
 					break;
-				case "-port":
+				case "-"+OPTION_PORT:
 					if (i > N-1)
 						throw new UsageException("Port number missing after -port parameter");
-					properties_arguments.put("port", args[i+1]);
+					properties_arguments.put(OPTION_PORT, args[i+1]);
 					i++;
 					break;
-				case "-simul":
-					properties_arguments.put("simul", "");
+				case "-"+OPTION_SIMUL:
+					properties_arguments.put(OPTION_SIMUL, "");
 					break;
 				default:
 					throw new UsageException("Unknown parameter: " + args[i]);
@@ -80,19 +84,21 @@ public class T1 {
 		}
 		
 		// Check that port was specified
-		if(!properties.containsKey("port")){
+		if(!properties.containsKey(OPTION_PORT)){
 			new UsageException("Port number was not specified").printOutput();
 			return;
 		}
 		// Check that the port is a valid number
-		int blaportno;
+		int portno;
+		boolean bSimul = properties.containsKey(OPTION_SIMUL); 
+				
 		try {
-			blaportno = Integer.parseInt(properties.getProperty("port"));
+			portno = Integer.parseInt(properties.getProperty(OPTION_PORT));
 		} catch (NumberFormatException e) {
-			blaportno = -1;
+			portno = -1;
 		}
-		if( blaportno < 1 || blaportno >= 65536) {
-			new UsageException("Invalid 'port' property: " + properties.getProperty("port")).printOutput();
+		if( portno < 1 || portno >= 65536) {
+			new UsageException("Invalid property "+OPTION_PORT+": " + properties.getProperty(OPTION_PORT)).printOutput();
 			return;
 		}
 		
@@ -100,6 +106,11 @@ public class T1 {
 		for( Object o : properties.keySet()){
 			System.out.println(((String)o) + "=" + properties.put(o, properties.get(o)));
 		}
+		
+		if(bSimul)
+			new Simulator(properties).execute();
+		else
+			new Server(properties).execute();
 		
 	}
 

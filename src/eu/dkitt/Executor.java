@@ -35,7 +35,11 @@ public class Executor {
 		inStream = socket.getInputStream();
 		outStream = socket.getOutputStream();
 		
+		socket.getSoTimeout();
+		socket.setSoTimeout(1000);
+		
 		while(true) {
+			// TODO: do not check availability here - use timeout instead !!!
 			if(inStream.available()>0){
 				int c = inStream.read();
 				System.out.println("c = " + c);

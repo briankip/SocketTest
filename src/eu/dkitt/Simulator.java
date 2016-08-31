@@ -18,6 +18,7 @@ public class Simulator {
 		System.out.println("Starting simulator using port = "+portno);
 		try(
 			Socket socket = new Socket("localhost", portno);
+				
 				) {
 			
 			final Executor executor = new Executor(socket,properties,true);
@@ -31,10 +32,15 @@ public class Simulator {
 					}
 				}
 			},"Client"); 
-
-			System.out.println("Client started - press ^C to close it...");
-			System.in.read();
 			
+			clientthread.start();
+
+			try {
+				clientthread.join();
+			} catch (InterruptedException e) {
+			}
+			
+			System.out.println("Terminated.");
 			
 		} catch (UnknownHostException e) {
 			System.out.println("Unknown host loalhost");

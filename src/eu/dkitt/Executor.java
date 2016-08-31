@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.Properties;
 
 public class Executor {
@@ -35,15 +36,42 @@ public class Executor {
 		inStream = socket.getInputStream();
 		outStream = socket.getOutputStream();
 		
-		socket.getSoTimeout();
-		socket.setSoTimeout(1000);
+		int to = socket.getSoTimeout();
+		to = 1000;
+		socket.setSoTimeout(to);
 		
-		while(true) {
+		if(bSimulator){
+			outStream.write('A');
+			outStream.write('H');
+			outStream.write('O');
+			outStream.write('J');
+			return;
+		}
+		
+		
+		
+		while (true) {
+			
+			int c;
+			
+			try {
+				c = inStream.read();
+				if(c<0) {
+					System.out.println("Client closing.");
+					return;
+				}
+				System.out.println(c);
+			} catch(SocketTimeoutException ex){
+				// System.out.println("tout");
+			}
+			
+			
 			// TODO: do not check availability here - use timeout instead !!!
-			if(inStream.available()>0){
+			/*
+			if (inStream.available() > 0) {
 				int c = inStream.read();
 				System.out.println("c = " + c);
-				if(c == ENQ) {
+				if (c == ENQ) {
 					outStream.write(ACK);
 					receive();
 				}
@@ -54,6 +82,7 @@ public class Executor {
 				Thread.sleep(500);
 			} catch (InterruptedException e) {
 			}
+			*/
 		}
 		
 		

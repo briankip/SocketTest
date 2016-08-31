@@ -13,15 +13,15 @@ public class Simulator {
 		this.properties = properties;
 	}
 	
-	public void execute() {
+	public void execute() throws InterruptedException {
+		
 		int portno = Integer.parseInt(properties.getProperty(T1.OPTION_PORT));
 		System.out.println("Starting simulator using port = "+portno);
-		try(
-			Socket socket = new Socket("localhost", portno);
-				
-				) {
+		
+		try(Socket socket = new Socket("localhost", portno);) {
 			
 			final Executor executor = new Executor(socket,properties,true);
+			
 			
 			Thread clientthread = new Thread(new Runnable() {
 				@Override
@@ -34,6 +34,27 @@ public class Simulator {
 			},"Client"); 
 			
 			clientthread.start();
+			
+			System.out.println("Press [Enter] to terminate the server.");
+			
+			boolean bRun = true;
+			
+			while(bRun){
+				Thread.sleep(500);
+				if(!clientthread.isAlive()){
+					bRun = false;
+					System.out.println("Simulator exited.");
+					continue;
+				}
+				while(System.in.available()>0){
+					int c = System.in.read();
+					if(c==10){
+						System.out.println("Simulator will stop.");
+						bRun = false;
+					}
+				}
+				continue;
+			};
 
 			try {
 				clientthread.join();

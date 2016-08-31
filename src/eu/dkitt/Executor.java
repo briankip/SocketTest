@@ -90,8 +90,6 @@ public class Executor {
 	}
 
 	private void receive() {
-		// TODO Auto-generated method stub
-		
 	}
 
 }

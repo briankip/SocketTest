@@ -35,7 +35,7 @@ public class T1 {
 
 	public static Properties properties = null;
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException, InterruptedException {
 		
 		int N = args.length;
 		Properties properties_arguments = new Properties();

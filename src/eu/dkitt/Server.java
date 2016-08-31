@@ -16,14 +16,16 @@ public class Server {
 	
 	/**
 	 * The method is starting a server in the main thread.
+	 * @throws IOException 
 	 */
-	public void execute() {
+	public void execute() throws IOException {
 		int worker_counter=1;
 		ServerSocket serverSocket = null;
 		int portno = Integer.parseInt(properties.getProperty(T1.OPTION_PORT));
 		System.out.println("Starting server on port = "+portno);
 		try {
 			serverSocket = new ServerSocket(portno);
+			serverSocket.setSoTimeout(500);
 		} catch (IOException e1) {
 			// We did not get a server socket - no way to continue - just exit
 			e1.printStackTrace();
@@ -37,12 +39,25 @@ public class Server {
 		 */
 		
 		Socket clientSocket = null;
+		
+		System.out.println("Press [Enter] to terminate the server.");
+		
 		while(true) {
 			Socket newSocket;
 			try {
 				newSocket = serverSocket.accept();
 			} catch (SocketTimeoutException exTout) {
-				// TODO: Set timeout to the server socket and check user input here - request to terminate
+				while(System.in.available()>0){
+					int c = System.in.read();
+					if(c==10){
+						serverSocket.close();
+						System.out.println("Server stopped");
+						if(clientSocket!=null) {
+							clientSocket.close();
+						}
+						return;
+					}
+				}
 				continue;
 			}
 			catch (IOException e1) {
@@ -55,7 +70,7 @@ public class Server {
 				try {clientSocket.close();} catch (IOException e) {}
 			}
 			clientSocket = newSocket;
-			// Start a new worker associated with the socket.
+			// Start a new server worker thread associated with the socket.
 			final Executor executor = new Executor(clientSocket,properties,false);
 			Thread worker = new Thread(new Runnable() {
 					@Override

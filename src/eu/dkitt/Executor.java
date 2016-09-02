@@ -18,12 +18,12 @@ public class Executor {
 	static final int ETX = 3;
 	static final int EOT = 4;
 	
-	boolean bSimulator;
-	Properties properties;
-	Socket socket;
+	private	boolean bSimulator;
+	private Properties properties;
+	private Socket socket;
 	
-	InputStream inStream;
-	OutputStream outStream;
+	private	InputStream inStream;
+	private	OutputStream outStream;
 	
 	public Executor(Socket socket, Properties properties, boolean bSimulator) {
 		this.properties = properties;

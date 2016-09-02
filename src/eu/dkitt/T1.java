@@ -7,7 +7,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.file.InvalidPathException;
 import java.util.Properties;
+
+import eu.dkitt.FileProcessor.InvalidFileContents;
 
 
 public class T1 {
@@ -176,7 +179,21 @@ public class T1 {
 			
 			System.out.println("File found: " + fp.hasFileToSend() + ": " + fp.getFile());
 					
-			
+			if(fp.hasFileToSend()){
+					int Nread = 0;
+					try {
+						Nread = fp.readFileData();
+					} catch (InvalidPathException e) {
+						e.printStackTrace();
+					} catch (InvalidFileContents e) {
+						e.printStackTrace();
+					}
+					System.out.println("Bytes read: " + Nread);
+					bytes = fp.getData();
+				
+					
+			} else
+				System.out.println("No file found");
 			
 			if(true)
 				return;

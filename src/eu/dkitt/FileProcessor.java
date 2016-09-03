@@ -97,11 +97,9 @@ public class FileProcessor implements FileVisitor<Path> {
 		if(file==null) {
 			throw new FileNotFoundException("Not file name specified.");
 		}
-		String fileName = file.toString();
-		Path path = fileStart.resolve(fileName);
-		System.out.println("path to read: " + path);
+		System.out.println("path to read: " + file);
 		int n = -1;
-		try(InputStream istream = new FileInputStream(path.toFile())){
+		try(InputStream istream = new FileInputStream(file.toFile())){
 			n = istream.read(outbuf);
 		}
 		if(n<=0)
@@ -157,9 +155,12 @@ public class FileProcessor implements FileVisitor<Path> {
 	 * will be terminated.
 	 */
 	public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
-		if (attr.isRegularFile() && matcher.matches(file)) {
-			this.file = file;
-			return FileVisitResult.TERMINATE;
+		if (attr.isRegularFile()) {
+			Path name = file.getFileName();
+			if(matcher.matches(name)){
+				this.file = file;
+				return FileVisitResult.TERMINATE;
+			}
 		}
 		return FileVisitResult.CONTINUE;
 	}

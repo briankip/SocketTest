@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 public class Simulator {
+	
+	private static final Logger logger = Logger.getLogger(Simulator.class.getName());
 	
 	Properties properties;
 
@@ -15,13 +18,14 @@ public class Simulator {
 	
 	public void execute() throws InterruptedException {
 		
+		String host = properties.getProperty(T1.OPTION_HOST, "localhost");
 		int portno = Integer.parseInt(properties.getProperty(T1.OPTION_PORT));
-		System.out.println("Starting simulator using port = "+portno);
 		
-		try(Socket socket = new Socket("localhost", portno);) {
+		logger.info("Starting simulator using server = "+host+":"+portno);
+		
+		try(Socket socket = new Socket(host, portno);) {
 			
 			final Executor executor = new Executor(socket,properties,true);
-			
 			
 			Thread clientthread = new Thread(new Runnable() {
 				@Override
@@ -49,8 +53,10 @@ public class Simulator {
 				while(System.in.available()>0){
 					int c = System.in.read();
 					if(c==10){
-						System.out.println("Simulator will stop.");
+						System.out.println("Simulator will terminate.");
 						bRun = false;
+						socket.close();
+						break;
 					}
 				}
 				continue;

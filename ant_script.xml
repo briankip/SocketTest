@@ -4,7 +4,7 @@
     <!--ANT 1.7 is required                                        -->
     <!--define folder properties-->
     <property name="dir.buildfile" value="."/>
-    <property name="dir.workspace" value="C:/Users/dkittrich/workspace_neon"/>
+    <property name="dir.workspace" value="C:/Users/dan/workspace_neon"/>
     <property name="dir.jarfile" value="${dir.buildfile}"/>
     <target name="create_run_jar">
         <jar destfile="${dir.jarfile}/server.jar" filesetmanifest="mergewithoutmain">

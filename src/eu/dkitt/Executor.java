@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
 import java.util.Properties;
@@ -135,7 +136,56 @@ public class Executor {
 		
 	}
 
-	private void receive() {
+	private void receive() throws IOException {
+		
+		
+		int i, c;
+		byte [] bytes = new byte[100000];
+		
+		socket.setSoTimeout(15000);
+		
+		fileProcessor.prepareForNextFile();
+		
+		while(true) {
+					
+			c =inStream.read();
+			
+			if(c == EOT)
+				return;	// end of transmission
+			
+			if(c != STX) {
+				continue;
+			}
+			c = inStream.read();
+			
+			i=0;
+			boolean bTerminal;
+			while(true) {
+				c = inStream.read();
+				if( c != ETB && c != ETX ) {
+					bytes[i++] = (byte)c;
+					continue;
+				}
+				bTerminal = c == ETX;
+				break;
+			}
+			c = inStream.read();
+			c = inStream.read();
+			c = inStream.read();
+			c = inStream.read();
+				
+			fileProcessor.addOneFrame(bytes, i);
+			
+			if(bTerminal) {
+				fileProcessor.commitFile();
+				
+				System.out.println("File received");
+				
+				fileProcessor.prepareForNextFile();
+				
+			}
+		}
+			
 	}
 	
 	private boolean transmit() throws IOException {
@@ -225,6 +275,9 @@ public class Executor {
 		
 		fileProcessor.backupSentFile();
 		outStream.write(EOT);
+		
+		System.out.println("File sent" + fileProcessor.getFileName());
+		
 		return true;
 	}
 

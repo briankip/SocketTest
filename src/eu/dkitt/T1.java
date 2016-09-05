@@ -163,6 +163,7 @@ public class T1 {
 			System.out.println(((String)o) + "=" + properties.put(o, properties.get(o)));
 		}
 		
+		/*
 		{
 			
 			FileProcessor fp = new FileProcessor(properties);
@@ -200,6 +201,7 @@ public class T1 {
 			if(true)
 				return;
 		}
+		*/
 		
 		if(bSimul)
 			new Simulator(properties).execute();

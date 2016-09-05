@@ -245,6 +245,14 @@ public class FileProcessor implements FileVisitor<Path> {
 	public Path getFile() {
 		return file;
 	}
+	
+	/**
+	 * Return file name component of the file.
+	 * @return
+	 */
+	public String getFileName() {
+		return file.toFile().getName();
+	}
 
 	/**
 	 * Ignored - we use only a single directory level.

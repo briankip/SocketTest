@@ -87,7 +87,7 @@ public class Executor {
 			/**
 			 * We are idle
 			 */
-			if(!timerContention.tout() && !timerBusy.tout() && fileProcessor.hasFileToSend()){
+			if(timerContention.tout() && timerBusy.tout() && fileProcessor.hasFileToSend()){
 				outStream.write(ENQ);
 				socket.setSoTimeout(15000);
 			  	// keep reading while not getting either a valid byte or a timeout
@@ -179,6 +179,8 @@ public class Executor {
 			if(bTerminal) {
 				fileProcessor.commitFile();
 				
+				outStream.write(ACK);
+				
 				System.out.println("File received");
 				
 				fileProcessor.prepareForNextFile();
@@ -216,7 +218,7 @@ public class Executor {
 			if(N_2_send > 240) {
 				N_2_send = 240;
 			}
-			bLastFrame = N_remain > 240;
+			bLastFrame = N_remain <= 240;
 			
 			outStream.write(STX);
 			outStream.write(48 + frame_index);

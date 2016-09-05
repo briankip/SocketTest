@@ -132,6 +132,11 @@ public class Executor {
 				continue main_loop; // stay in idle state
 			}
 			if(c != ENQ) {
+				if(c == -1) {
+					// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return;
+				}
 				logger.info("Waiting for <ENQ> - Unexpected byte received : " + c);
 				continue main_loop;	// ignore - stay in idle state
 			}
@@ -166,11 +171,18 @@ public class Executor {
 			c =inStream.read();
 			
 			if(c == EOT) {
-				logger.info("<EOT> received - terminate transfer");
+				logger.info("<EOT> received - transfer terminated");
 				return;	// end of transmission
 			}
 			
 			if(c != STX) {
+				
+				if(c == -1) {
+				// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return;
+				}
+				
 				logger.info("Waiting for <STX> - Unexpected byte received : " + c);
 				continue;
 			}
@@ -195,23 +207,20 @@ public class Executor {
 			c = inStream.read();
 			c = inStream.read();
 			
+			// TODO: Check correct checksumm and react accordingly
+			
 			logger.info("Frame contents length : " + i);
 			
 			fileProcessor.addOneFrame(bytes, i);
 			
 			if(bTerminal) {
-				
 				logger.info("Writing a file");
 				fileProcessor.commitFile();
-				
-				logger.info("Terminal frame confirmed by <ACK>");
-				outStream.write(ACK);
-				
-				System.out.println("File received");
-				
 				fileProcessor.prepareForNextFile();
-				
 			}
+				
+			logger.info("Frame confirmed by <ACK>");
+			outStream.write(ACK);
 		}
 			
 	}
@@ -257,9 +266,9 @@ public class Executor {
 			
 			frame_summ = 48 + frame_index + (bLastFrame ? ETX : ETB);
 			for(int i=0; i<N_2_send; ++i){
-				frame_summ += bytes[N_sent+i];
+				frame_summ += 0xFF & (bytes[N_sent+i]);
 			}
-
+			
 			int cs1 = (frame_summ & 0xF0)>>8;
 			int cs2 = frame_summ & 0x0F;
 			
@@ -278,7 +287,7 @@ public class Executor {
 			outStream.write(CR);
 			outStream.write(LF);
 			
-			logger.info(N_2_send + " bytes send");
+			logger.info(N_2_send + " bytes sent");
 			
 			socket.setSoTimeout(15000);
 			
@@ -303,6 +312,11 @@ public class Executor {
 					logger.info("<NAK> received - resending the last frame");
 					continue main_loop; // repeat sending last frame
 				}
+				if(c==-1) {
+					// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return false;
+				}
 			}
 		}
 		
@@ -311,7 +325,7 @@ public class Executor {
 		logger.info("Terminate transfer phase - sending <EOT> ");
 		outStream.write(EOT);
 		
-		System.out.println("File sent" + fileProcessor.getFileName());
+		System.out.println("File sent " + fileProcessor.getFileName());
 		
 		return true;
 	}

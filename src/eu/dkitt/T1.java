@@ -15,7 +15,7 @@ import eu.dkitt.FileProcessor.InvalidFileContents;
 
 public class T1 {
 	
-	public static	final	String OPTION_HOST = "localhost";
+	public static	final	String OPTION_HOST = "host";
 	public static	final	String OPTION_PORT = "port"; 
 	public static	final	String OPTION_SIMUL = "simul"; 
 	public static	final	String OPTION_DIRECTORY_2_SEND = "indir";

@@ -190,6 +190,8 @@ public class T1 {
 					}
 					System.out.println("Bytes read: " + Nread);
 					bytes = fp.getData();
+					
+					fp.backupSentFile();
 				
 					
 			} else

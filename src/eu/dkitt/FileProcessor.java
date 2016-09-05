@@ -1,8 +1,12 @@
 package eu.dkitt;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,7 +15,9 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -30,6 +36,7 @@ import eu.dkitt.FileProcessor.InvalidFileContents;
  * <li>Generating a received data output file name</li>
  * <li>Writing received data into the output file</li>
  * </ul>
+ * 
  * @author dkittrich
  *
  */
@@ -40,6 +47,8 @@ public class FileProcessor implements FileVisitor<Path> {
 	 * Must be incremented and saved externally after each new file generated.
 	 */ 
 	private int outFileCounter = 1;
+	
+	private File outFileCounterStore;
 	/** 
 	 * Buffer for caching frames data to write.<br/>
 	 * We assume that no message will be larger than this buffer.<br/>
@@ -74,6 +83,13 @@ public class FileProcessor implements FileVisitor<Path> {
 	 * @throws IOException
 	 */
 	public	void	commitFile() throws FileNotFoundException, IOException {
+		try(BufferedReader freader = new BufferedReader(new  FileReader(outFileCounterStore));) {
+			String str = freader.readLine();
+			str = str.trim();
+			outFileCounter = Integer.parseInt(str);
+		} catch (FileNotFoundException ex){
+			outFileCounter = 1;
+		}
 		String fileName = String.format(fileRcvdFmt, outFileCounter);
 		Path path = fileRcvd.resolve(fileName);
 		System.out.println("path to write: " + path);
@@ -81,6 +97,10 @@ public class FileProcessor implements FileVisitor<Path> {
 			os.write(outbuf, 0, outbuf_index);
 			os.close();
 			outFileCounter++;
+			
+			try(FileWriter fw = new FileWriter(outFileCounterStore);) {
+				fw.write(""+outFileCounter);
+			}
 		}
 	}
 	
@@ -112,6 +132,11 @@ public class FileProcessor implements FileVisitor<Path> {
 	 */
 	public byte[] getData() {
 		return outbuf;
+	}
+
+	public void backupSentFile() throws IOException {
+		String fileName = file.toFile().getName();
+		Files.move(file,fileBackup.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
 	}
 	
 	@SuppressWarnings("serial")
@@ -153,6 +178,9 @@ public class FileProcessor implements FileVisitor<Path> {
 	 * The filename is processed by a matcher.
 	 * The first file found will be registered and the walker routine
 	 * will be terminated.
+	 * @param file	path to test
+	 * @param attr	attributes of a provided file parameter
+	 * @return TERMINATE when the first file that match was detected, CONTINUE otherwise
 	 */
 	public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
 		if (attr.isRegularFile()) {
@@ -165,22 +193,41 @@ public class FileProcessor implements FileVisitor<Path> {
 		return FileVisitResult.CONTINUE;
 	}
 	
+	/**
+	 * Constructor store a reference to properties.
+	 * It also ananlyzes properties and resolves relevant options:
+	 * <ul>
+	 * <li>Directore where to search for files to send.</li>
+	 * <li>Mask of files to send - only files in the directory that match the mask will be sent.</li>
+	 * <li>Directory where to move files after being successfully sent.</li>
+	 * <li>Directore where to store received message files.</li>
+	 * <li>Name generation mask for received files - must contain %d (%05d) where running counter will be presented.</li> 
+	 * </ul>
+	 * @param properties	properties initiated from a property file and/or command line parameters
+	 */
 	public	FileProcessor(Properties properties) {
 		String directory;
 		String mask;
 		this.properties = properties;
 		opts = EnumSet.noneOf(FileVisitOption.class);
 		directory = this.properties.getProperty(T1.OPTION_DIRECTORY_2_SEND);
-		fileStart = FileSystems.getDefault().getPath(directory);
+		fileStart = Paths.get(directory);
 		mask = this.properties.getProperty(T1.OPTION_FILES_2_SEND_MASK);
 		matcher = FileSystems.getDefault().getPathMatcher("glob:" + mask);
 		directory = this.properties.getProperty(T1.OPTION_DIRBACKUP_2_SEND);
-		fileBackup = FileSystems.getDefault().getPath(directory);
+		fileBackup = Paths.get(directory);
 		directory = this.properties.getProperty(T1.OPTION_DIRECTORY_RCVD);
-		fileRcvd = FileSystems.getDefault().getPath(directory);
+		fileRcvd = Paths.get(directory);
+		outFileCounterStore = fileRcvd.resolve(".counter").toFile();
 		fileRcvdFmt = this.properties.getProperty(T1.OPTION_FILES_RCVD_NAME);
 	}
 	
+	/**
+	 * Initiates a file search tree walk.
+	 * Will return true if a file was found.
+	 * The file path will be stored in an instance member file.
+	 * @return true if found
+	 */
 	public	boolean	hasFileToSend() {
 		file = null;
 		try {
@@ -191,20 +238,33 @@ public class FileProcessor implements FileVisitor<Path> {
 		return file != null;
 	}
 	
+	/**
+	 * Returns a path when a file was found.
+	 * @return file path of detected input file.
+	 */
 	public Path getFile() {
 		return file;
 	}
 
+	/**
+	 * Ignored - we use only a single directory level.
+	 */
 	@Override
 	public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
 		return FileVisitResult.CONTINUE;
 	}
 
+	/**
+	 * Ignored - we use only a single directory level.
+	 */
 	@Override
 	public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
 		return FileVisitResult.CONTINUE;
 	}
 
+	/**
+	 * Ignored - we skip any failures.
+	 */
 	@Override
 	public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
 		return FileVisitResult.CONTINUE;

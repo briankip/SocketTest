@@ -32,7 +32,9 @@ public class Simulator {
 				public void run() {
 					try {
 						executor.execute();
+						logger.info("Simulator exited.");
 					} catch (IOException e) {
+						logger.info("Simulator exit exception: " + e.getMessage());
 					}
 				}
 			},"Client"); 

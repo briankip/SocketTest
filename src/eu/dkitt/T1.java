@@ -8,13 +8,25 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.InvalidPathException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Properties;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
+import java.util.logging.Formatter;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import eu.dkitt.FileProcessor.InvalidFileContents;
 
 
 public class T1 {
 	
+	public static	final	String OPTION_LOGFILE = "logfile";
+	public static	final	String OPTION_LOGLEVEL = "loglevel";
 	public static	final	String OPTION_HOST = "host";
 	public static	final	String OPTION_PORT = "port"; 
 	public static	final	String OPTION_SIMUL = "simul"; 
@@ -36,13 +48,16 @@ public class T1 {
 			System.out.println(getMessage());
 			System.out.println("Usage:\n" + "app -props <file> [-host <hostaddr>] [-port <number>] [-indir <directory>] [-inmask <mask>] [-simul]\n\n"
 					+ "Contents of the property file:\n"
+					+ "  logfile=<logfilepath> ... logfile\n"
+					+ "  loglevel=<level> ... severe|warning|info|config|fine|finer|finest\n"
+					+ "  host=<hostaddr> ... address of host - DNS or IP address\n"
 					+ "  port=<number> ... port number in the range 1..65535\n"
 					+ "  indir=<directory> ... directory where to search files to send\n"
 					+ "  inmask=<mask> ... mask to search for files\n"
 					+ "  inbackup=<directory> ... directore where to move files sent\n"
 					+ "  outdir=<directory> ... directory where to write received files\n"
-					+ "  outmask=<format> ... specification of file names received\n"
-					+ "  simul\n");
+					+ "  outname=<format> ... specification of file names received\n"
+					+ "  simul ... if present the application is simulating an instrument\n");
 			
 		}
 	}
@@ -55,6 +70,9 @@ public class T1 {
 		Properties properties_arguments = new Properties();
 		properties = new Properties();
 		// prepare some defaults
+		properties.setProperty(OPTION_LOGFILE, "app.log");
+		properties.setProperty(OPTION_LOGLEVEL, "fine");
+		
 		properties.setProperty(OPTION_HOST, "localhost");
 		properties.setProperty(OPTION_DIRECTORY_2_SEND, ".");
 		properties.setProperty(OPTION_FILES_2_SEND_MASK, "*_2_send.txt");
@@ -76,6 +94,20 @@ public class T1 {
 					} catch (IOException e) {
 						throw new UsageException("Error " + e + "\n" + " while reading property file: " + args[i + 1]);
 					}
+					i++;
+					break;
+					
+				case "-"+OPTION_LOGFILE:
+					if (i > N-1)
+						throw new UsageException("Missing logfile specification");
+					properties_arguments.put(OPTION_LOGFILE, args[i+1]);
+					i++;
+					break;
+					
+				case "-"+OPTION_LOGLEVEL:
+					if (i > N-1)
+						throw new UsageException("Missing loglevel specification");
+					properties_arguments.put(OPTION_LOGLEVEL, args[i+1]);
 					i++;
 					break;
 					
@@ -149,6 +181,26 @@ public class T1 {
 			properties.put(o, properties_arguments.get(o));
 		}
 		
+		// Prepare for logging
+		String loglevel = properties.getProperty(OPTION_LOGLEVEL,"info").toUpperCase();
+		String logfile = properties.getProperty(OPTION_LOGFILE,"app.log");
+		Level level = Level.parse(loglevel);
+		
+		Logger logParent = Logger.getLogger("eu.dkitt");
+		logParent.setUseParentHandlers(false);
+		
+		Handler h = new ConsoleHandler();
+		h.setFormatter(new MyFormatter());
+		h.setLevel(level);
+		logParent.addHandler(h);
+		
+		h = new FileHandler(logfile, 1000000, 9, true);
+		h.setFormatter(new MyFormatter());
+		h.setLevel(level);
+		logParent.addHandler(h);
+		logParent.setLevel(level);
+		
+		
 		// Check that port was specified
 		if(!properties.containsKey(OPTION_PORT)){
 			new UsageException("Port number was not specified").printOutput();
@@ -178,6 +230,22 @@ public class T1 {
 		else
 			new Server(properties).execute();
 		
+	}
+	
+	static private class MyFormatter extends Formatter {
+		private Calendar cal;
+		public MyFormatter() {
+			super();
+			cal = new GregorianCalendar();
+		}
+		@Override
+		public String format(LogRecord record) {
+			cal.setTime(new Date(record.getMillis()));
+			String str = String.format("%02d:%02d:%02d.%03d %s:%s -- %s\n",
+					cal.get(Calendar.HOUR),cal.get(Calendar.MINUTE),cal.get(Calendar.SECOND),cal.get(Calendar.MILLISECOND),
+					record.getLoggerName(), record.getSourceMethodName(), record.getMessage());
+			return str;
+		}
 	}
 
 }

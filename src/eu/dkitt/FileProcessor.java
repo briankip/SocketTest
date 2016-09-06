@@ -24,6 +24,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.EnumSet;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import eu.dkitt.FileProcessor.InvalidFileContents;
 
@@ -41,6 +42,8 @@ import eu.dkitt.FileProcessor.InvalidFileContents;
  *
  */
 public class FileProcessor implements FileVisitor<Path> {
+	
+	private static final Logger logger = Logger.getLogger(Simulator.class.getName());
 	
 	/**
 	 * Infinite running counter of output file name.<br/>
@@ -92,7 +95,7 @@ public class FileProcessor implements FileVisitor<Path> {
 		}
 		String fileName = String.format(fileRcvdFmt, outFileCounter);
 		Path path = fileRcvd.resolve(fileName);
-		System.out.println("path to write: " + path);
+		logger.fine("path to write: " + path);
 		try(OutputStream os = new FileOutputStream(path.toFile()) ){
 			os.write(outbuf, 0, outbuf_index);
 			os.close();
@@ -117,7 +120,7 @@ public class FileProcessor implements FileVisitor<Path> {
 		if(file==null) {
 			throw new FileNotFoundException("Not file name specified.");
 		}
-		System.out.println("path to read: " + file);
+		logger.fine("path to read: " + file);
 		int n = -1;
 		try(InputStream istream = new FileInputStream(file.toFile())){
 			n = istream.read(outbuf);

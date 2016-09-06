@@ -5,8 +5,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 public class Server {
+	
+	private static final Logger logger = Logger.getLogger(Simulator.class.getName());
 	
 	Properties properties;
 	
@@ -22,12 +25,14 @@ public class Server {
 		int worker_counter=1;
 		ServerSocket serverSocket = null;
 		int portno = Integer.parseInt(properties.getProperty(T1.OPTION_PORT));
-		System.out.println("Starting server on port = "+portno);
+		logger.info("Starting server on port = "+portno);
 		try {
 			serverSocket = new ServerSocket(portno);
 			serverSocket.setSoTimeout(500);
+			logger.fine("Server socket retrieved");
 		} catch (IOException e1) {
 			// We did not get a server socket - no way to continue - just exit
+			logger.warning("Could not retrieve server socket");
 			e1.printStackTrace();
 			return;
 		}
@@ -47,24 +52,24 @@ public class Server {
 			try {
 				newSocket = serverSocket.accept();
 			} catch (SocketTimeoutException exTout) {
-				while(System.in.available()>0){
+				while (System.in.available() > 0) {
 					int c = System.in.read();
-					if(c==10){
+					if (c == 10) {
 						serverSocket.close();
 						System.out.println("Server stopped");
-						if(clientSocket!=null) {
+						if (clientSocket != null) {
 							clientSocket.close();
 						}
 						return;
 					}
 				}
 				continue;
-			}
-			catch (IOException e1) {
+			} catch (IOException e1) {
+				logger.warning("Socket accept failed " + e1);
 				e1.printStackTrace();
 				return;
 			}
-			System.out.println("New client connected");
+			logger.info("New client connected");
 			if(clientSocket!=null) {
 				// close previous socket - any worker associated with it will take care and die eventually...
 				try {clientSocket.close();} catch (IOException e) {}
@@ -77,14 +82,15 @@ public class Server {
 					public void run() {
 						try {
 							executor.execute();
+							logger.info("Client connection exited.");
 						} catch (IOException e) {
+							logger.info("Client connection exception: " + e.getMessage());
 						}
 					}
 				}, "Worker_"+(worker_counter++));
 			worker.start();
 			
 		}
-		// System.out.println("Terminated");
 	}
 	
 }

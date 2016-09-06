@@ -163,46 +163,6 @@ public class T1 {
 			System.out.println(((String)o) + "=" + properties.put(o, properties.get(o)));
 		}
 		
-		/*
-		{
-			
-			FileProcessor fp = new FileProcessor(properties);
-			
-			byte [] bytes = {'a','h','o','j'};
-			
-			fp.prepareForNextFile();
-			fp.addOneFrame(bytes,bytes.length);
-			fp.commitFile();
-			fp.prepareForNextFile();
-			fp.addOneFrame(bytes,bytes.length);
-			fp.addOneFrame(bytes,bytes.length);
-			fp.commitFile();
-			
-			System.out.println("File found: " + fp.hasFileToSend() + ": " + fp.getFile());
-					
-			if(fp.hasFileToSend()){
-					int Nread = 0;
-					try {
-						Nread = fp.readFileData();
-					} catch (InvalidPathException e) {
-						e.printStackTrace();
-					} catch (InvalidFileContents e) {
-						e.printStackTrace();
-					}
-					System.out.println("Bytes read: " + Nread);
-					bytes = fp.getData();
-					
-					fp.backupSentFile();
-				
-					
-			} else
-				System.out.println("No file found");
-			
-			if(true)
-				return;
-		}
-		*/
-		
 		if(bSimul)
 			new Simulator(properties).execute();
 		else

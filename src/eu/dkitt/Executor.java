@@ -8,10 +8,13 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import eu.dkitt.FileProcessor.InvalidFileContents;
 
 public class Executor {
+	
+	private static final Logger logger = Logger.getLogger(Executor.class.getName());
 	
 	static class MyTimer {
 		long timeout;
@@ -88,6 +91,7 @@ public class Executor {
 			 * We are idle
 			 */
 			if(timerContention.tout() && timerBusy.tout() && fileProcessor.hasFileToSend()){
+				logger.info("There is a file to transfer - starting establishment phase");
 				outStream.write(ENQ);
 				socket.setSoTimeout(15000);
 			  	// keep reading while not getting either a valid byte or a timeout
@@ -95,19 +99,24 @@ public class Executor {
 					try {
 						c = inStream.read();
 					} catch (SocketTimeoutException ex) {
+						logger.info("No valid byte received - starting busy timer for 30 seconds");
 						outStream.write(EOT);
 						timerBusy.start(30000);
 						continue main_loop; // stay in idle state
 					}
 					if (c == ACK) {
+						logger.info("<ACK> received - starting transfer phase (sender)");
 						transmit();
+						logger.info("Going idle");
 						continue main_loop; // stay in idle state
 					}
 					if (c == NAK) {
+						logger.info("<NAK> received - starting busy timer for 10 seconds");
 						timerBusy.start(10000);
 						continue main_loop; // stay in idle state
 					}
 					if (c == ENQ) {
+						logger.info("<ENQ> received - starting contention timer for " + (bSimulator?"1 second":"20 seconds"));
 						timerContention.start();
 						continue main_loop;	// stay in idle state
 					}
@@ -122,14 +131,25 @@ public class Executor {
 			} catch (SocketTimeoutException ex) {
 				continue main_loop; // stay in idle state
 			}
-			if(c != ENQ)
+			if(c != ENQ) {
+				if(c == -1) {
+					// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return;
+				}
+				logger.info("Waiting for <ENQ> - Unexpected byte received : " + c);
 				continue main_loop;	// ignore - stay in idle state
+			}
+			logger.info("<ENQ> received");
 			if(bSimulator && fileProcessor.hasFileToSend()){
+				logger.info("Simulator has file to send - request will be rejected by <NAK>");
 				outStream.write(NAK);
 				continue main_loop; // stay in idle state
 			}
+			logger.info("Request confirmed by <ACK> - starting transfer phase (receiver)");
 			outStream.write(ACK);	// confirm readiness to receive
 			receive();
+			logger.info("Going idle");
 		}
 		
 		
@@ -150,13 +170,25 @@ public class Executor {
 					
 			c =inStream.read();
 			
-			if(c == EOT)
+			if(c == EOT) {
+				logger.info("<EOT> received - transfer terminated");
 				return;	// end of transmission
+			}
 			
 			if(c != STX) {
+				
+				if(c == -1) {
+				// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return;
+				}
+				
+				logger.info("Waiting for <STX> - Unexpected byte received : " + c);
 				continue;
 			}
+			
 			c = inStream.read();
+			logger.info("Frame index received : " + c);
 			
 			i=0;
 			boolean bTerminal;
@@ -166,6 +198,7 @@ public class Executor {
 					bytes[i++] = (byte)c;
 					continue;
 				}
+				logger.info("End of frame received : " + c);
 				bTerminal = c == ETX;
 				break;
 			}
@@ -173,19 +206,21 @@ public class Executor {
 			c = inStream.read();
 			c = inStream.read();
 			c = inStream.read();
-				
+			
+			// TODO: Check correct checksumm and react accordingly
+			
+			logger.info("Frame contents length : " + i);
+			
 			fileProcessor.addOneFrame(bytes, i);
 			
 			if(bTerminal) {
+				logger.info("Writing a file");
 				fileProcessor.commitFile();
-				
-				outStream.write(ACK);
-				
-				System.out.println("File received");
-				
 				fileProcessor.prepareForNextFile();
-				
 			}
+				
+			logger.info("Frame confirmed by <ACK>");
+			outStream.write(ACK);
 		}
 			
 	}
@@ -193,6 +228,7 @@ public class Executor {
 	private boolean transmit() throws IOException {
 		
 		if(!fileProcessor.hasFileToSend()){
+			logger.info("There is no file to send - unexpected, sending <EOT>");
 			outStream.write(EOT);
 			return true;
 		}
@@ -201,12 +237,15 @@ public class Executor {
 		try {
 			N_remain = fileProcessor.readFileData();
 		} catch (InvalidPathException e) {
+			logger.info("Invalid path - " + e);
 			e.printStackTrace();
 			return false;
 		} catch (InvalidFileContents e) {
+			logger.info("Invalid file contents - " + e);
 			e.printStackTrace();
 			return false;
 		}
+		logger.info(N_remain + " bytes read from " + fileProcessor.getFileName());
 		bytes = fileProcessor.getData();
 		N_sent = 0;
 		frame_index = 1;	// first frame index will be 1
@@ -227,9 +266,9 @@ public class Executor {
 			
 			frame_summ = 48 + frame_index + (bLastFrame ? ETX : ETB);
 			for(int i=0; i<N_2_send; ++i){
-				frame_summ += bytes[N_sent+i];
+				frame_summ += 0xFF & (bytes[N_sent+i]);
 			}
-
+			
 			int cs1 = (frame_summ & 0xF0)>>8;
 			int cs2 = frame_summ & 0x0F;
 			
@@ -248,6 +287,8 @@ public class Executor {
 			outStream.write(CR);
 			outStream.write(LF);
 			
+			logger.info(N_2_send + " bytes sent");
+			
 			socket.setSoTimeout(15000);
 			
 			// keep reading while not getting either a valid byte or a timeout
@@ -256,29 +297,35 @@ public class Executor {
 				try {
 					c = inStream.read();
 				} catch (SocketTimeoutException ex) {
+					logger.info("No reaction from the receiver - sending <EOT>");
 					outStream.write(EOT);
 					return false; // abort procedure
 				}
 				if (c == ACK || c == EOT) {
+					logger.info("<ACK> or <EOT> received : " + c);
 					N_remain -= N_2_send;
 					N_sent += N_2_send;
 					frame_index = (frame_index+1)%8;
 					continue main_loop;	// continue sending frames
 				}
 				if (c == NAK) {
+					logger.info("<NAK> received - resending the last frame");
 					continue main_loop; // repeat sending last frame
 				}
-				if (c == ENQ) {
-					timerContention.start();
-					continue main_loop;	// stay in idle state
+				if(c==-1) {
+					// socket was closed - there is no remedy - this thread must die !
+					logger.info("Socket was close - this thread will give up ...");
+					return false;
 				}
 			}
 		}
 		
+		logger.info("File was sent, move it to a backup directory");
 		fileProcessor.backupSentFile();
+		logger.info("Terminate transfer phase - sending <EOT> ");
 		outStream.write(EOT);
 		
-		System.out.println("File sent" + fileProcessor.getFileName());
+		System.out.println("File sent " + fileProcessor.getFileName());
 		
 		return true;
 	}

@@ -15,6 +15,7 @@ import eu.dkitt.FileProcessor.InvalidFileContents;
 
 public class T1 {
 	
+	public static	final	String OPTION_HOST = "host";
 	public static	final	String OPTION_PORT = "port"; 
 	public static	final	String OPTION_SIMUL = "simul"; 
 	public static	final	String OPTION_DIRECTORY_2_SEND = "indir";
@@ -33,7 +34,7 @@ public class T1 {
 		
 		void	printOutput() {
 			System.out.println(getMessage());
-			System.out.println("Usage:\n" + "app -props <file> [-port <number>] [-indir <directory>] [-inmask <mask>] [-simul]\n\n"
+			System.out.println("Usage:\n" + "app -props <file> [-host <hostaddr>] [-port <number>] [-indir <directory>] [-inmask <mask>] [-simul]\n\n"
 					+ "Contents of the property file:\n"
 					+ "  port=<number> ... port number in the range 1..65535\n"
 					+ "  indir=<directory> ... directory where to search files to send\n"
@@ -54,6 +55,7 @@ public class T1 {
 		Properties properties_arguments = new Properties();
 		properties = new Properties();
 		// prepare some defaults
+		properties.setProperty(OPTION_HOST, "localhost");
 		properties.setProperty(OPTION_DIRECTORY_2_SEND, ".");
 		properties.setProperty(OPTION_FILES_2_SEND_MASK, "*_2_send.txt");
 		properties.setProperty(OPTION_DIRBACKUP_2_SEND, "sent");
@@ -112,12 +114,20 @@ public class T1 {
 					i++;
 					break;
 					
+				case "-"+OPTION_HOST:
+					if (i > N-1)
+						throw new UsageException("Missing host");
+					properties_arguments.put(OPTION_HOST, args[i+1]);
+					i++;
+					break;
+					
 				case "-"+OPTION_PORT:
 					if (i > N-1)
 						throw new UsageException("Port number missing after -port parameter");
 					properties_arguments.put(OPTION_PORT, args[i+1]);
 					i++;
 					break;
+					
 				case "-"+OPTION_SIMUL:
 					properties_arguments.put(OPTION_SIMUL, "");
 					break;

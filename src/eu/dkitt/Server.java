@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 
 public class Server {
 	
-	private static final Logger logger = Logger.getLogger(Simulator.class.getName());
+	private static final Logger logger = Logger.getLogger(Server.class.getName());
 	
 	Properties properties;
 	

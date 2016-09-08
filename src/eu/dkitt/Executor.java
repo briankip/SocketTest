@@ -268,7 +268,7 @@ public class Executor {
 				frame_summ += 0xFF & (bytes[N_sent+i]);
 			}
 			
-			int cs1 = (frame_summ & 0xF0)>>8;
+			int cs1 = (frame_summ & 0xF0)>>4;
 			int cs2 = frame_summ & 0x0F;
 			
 			if(cs1 < 10)

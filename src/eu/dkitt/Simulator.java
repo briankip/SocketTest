@@ -41,7 +41,7 @@ public class Simulator {
 			
 			clientthread.start();
 			
-			System.out.println("Press [Enter] to terminate the server.");
+			System.out.println("Press [Enter] to terminate the simulator.");
 			
 			boolean bRun = true;
 			

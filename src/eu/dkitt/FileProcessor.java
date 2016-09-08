@@ -43,7 +43,7 @@ import eu.dkitt.FileProcessor.InvalidFileContents;
  */
 public class FileProcessor implements FileVisitor<Path> {
 	
-	private static final Logger logger = Logger.getLogger(Simulator.class.getName());
+	private static final Logger logger = Logger.getLogger(FileProcessor.class.getName());
 	
 	/**
 	 * Infinite running counter of output file name.<br/>

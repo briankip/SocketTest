@@ -8,6 +8,8 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
 import java.util.Properties;
+import java.util.logging.Handler;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import eu.dkitt.FileProcessor.InvalidFileContents;
@@ -68,6 +70,10 @@ public class Executor {
 	
 	private FileProcessor fileProcessor;
 	
+	public Socket getSocket() {
+		return socket;
+	}
+	
 	public Executor(Socket socket, Properties properties, boolean bSimulator) {
 		this.properties = properties;
 		this.socket = socket;
@@ -90,8 +96,16 @@ public class Executor {
 			/**
 			 * We are idle
 			 */
+			if(logger.isLoggable(Level.INFO)){
+				Handler[] hs = logger.getHandlers();
+				for(Handler h : hs){
+					h.flush();
+				}
+			}
+			
 			if(timerContention.tout() && timerBusy.tout() && fileProcessor.hasFileToSend()){
 				logger.info("There is a file to transfer - starting establishment phase");
+				logger.finest("writing <ENQ>");
 				outStream.write(ENQ);
 				socket.setSoTimeout(15000);
 			  	// keep reading while not getting either a valid byte or a timeout
@@ -101,6 +115,7 @@ public class Executor {
 					} catch (SocketTimeoutException ex) {
 						logger.fine("No valid byte received - starting busy timer for 30 seconds");
 						outStream.write(EOT);
+						logger.finest("writing <EOT>");
 						timerBusy.start(30000);
 						continue main_loop; // stay in idle state
 					}

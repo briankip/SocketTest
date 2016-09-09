@@ -86,6 +86,13 @@ public class Server {
 						} catch (IOException e) {
 							logger.info("Client connection exception: " + e.getMessage());
 						}
+						logger.info("Server loop terminated");
+						Socket socket = executor.getSocket();
+						try {
+							socket.close();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
 					}
 				}, "Worker_"+(worker_counter++));
 			worker.start();

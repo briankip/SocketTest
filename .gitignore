@@ -1,11 +1,4 @@
 /bin/
 /testdata*/
 Architect RS232com.prot.pdf
-/out.log.0
-/out.log.1
-/app.log.0
-/app.log.0.1
-/server.log.0
-/server.log.0.1
-/simul.log.0
-/simul.log.0.lck
+/*.log.[0-9]*

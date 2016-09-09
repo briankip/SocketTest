@@ -8,10 +8,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.InvalidPathException;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Properties;
+import java.util.Set;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -189,15 +191,16 @@ public class T1 {
 		Logger logParent = Logger.getLogger("eu.dkitt");
 		logParent.setUseParentHandlers(false);
 		
-		Handler h = new ConsoleHandler();
-		h.setFormatter(new MyFormatter());
-		h.setLevel(level);
-		logParent.addHandler(h);
+		Handler hConsoleHandler = new ConsoleHandler();
+		hConsoleHandler.setFormatter(new MyFormatter());
+		hConsoleHandler.setLevel(level);
+		logParent.addHandler(hConsoleHandler);
 		
-		h = new FileHandler(logfile, 1000000, 9, true);
-		h.setFormatter(new MyFormatter());
-		h.setLevel(level);
-		logParent.addHandler(h);
+		Handler hLogFileHandler = new FileHandler(logfile, 1000000, 9, true);
+		hLogFileHandler.setFormatter(new MyFormatter());
+		hLogFileHandler.setLevel(level);
+		logParent.addHandler(hLogFileHandler);
+		
 		logParent.setLevel(level);
 		
 		
@@ -219,16 +222,45 @@ public class T1 {
 			new UsageException("Invalid property "+OPTION_PORT+": " + properties.getProperty(OPTION_PORT)).printOutput();
 			return;
 		}
-		// Summarize all options
-		System.out.println("Options: ");
-		for( Object o : properties.keySet()){
-			System.out.println(((String)o) + "=" + properties.put(o, properties.get(o)));
+		
+		{
+			/**
+			 * We temporarily assign a specialized formatter so that we printout the configuration
+			 * in a concise format both to console and to the file handler.
+			 * We print effective options in alphabetical order.
+			 * We use 'severe' log level, so that the configuration shoule be printed in most cases.
+			 * In order to cancel any printout, user must specify the log level OFF.
+			 */
+			Formatter fmtConsole = hConsoleHandler.getFormatter();
+			Formatter fmtLogFile = hLogFileHandler.getFormatter();
+			hConsoleHandler.setFormatter(new MyConfigFormatter());
+			hLogFileHandler.setFormatter(new MyConfigFormatter());
+			Calendar cal = new GregorianCalendar(); 
+			cal.setTime(new Date());
+			String header = String.format("%04d/%02d/%02d %02d:%02d:%02d.%03d %s started.\n",
+					cal.get(Calendar.YEAR),cal.get(Calendar.MONTH)+1,cal.get(Calendar.DAY_OF_MONTH),
+					cal.get(Calendar.HOUR),cal.get(Calendar.MINUTE),cal.get(Calendar.SECOND),cal.get(Calendar.MILLISECOND),
+					(bSimul ? "Simulator" : "Server"));
+			
+			logParent.severe("========================================================================\n");
+			logParent.severe(header);
+			logParent.severe("------------------------------------------------------------------------\n");
+			logParent.severe("Options:\n");
+			Set set = properties.keySet();
+			Object[] array = set.toArray();
+			Arrays.sort(array);
+			for( Object o : array){
+				logParent.severe("" + ((String)o) + "=" + properties.put(o, properties.get(o)) + "\n");
+			}
+			hConsoleHandler.setFormatter(fmtConsole);
+			hLogFileHandler.setFormatter(fmtLogFile);
 		}
 		
 		if(bSimul)
 			new Simulator(properties).execute();
 		else
 			new Server(properties).execute();
+			
 		
 	}
 	
@@ -241,10 +273,22 @@ public class T1 {
 		@Override
 		public String format(LogRecord record) {
 			cal.setTime(new Date(record.getMillis()));
-			String str = String.format("%02d:%02d:%02d.%03d %s:%s -- %s\n",
+			String str = String.format("%04d/%02d/%02d %02d:%02d:%02d.%03d %-8s %s:%s -- %s\n",
+					cal.get(Calendar.YEAR),cal.get(Calendar.MONTH)+1,cal.get(Calendar.DAY_OF_MONTH),
 					cal.get(Calendar.HOUR),cal.get(Calendar.MINUTE),cal.get(Calendar.SECOND),cal.get(Calendar.MILLISECOND),
+					record.getLevel().getName(),
 					record.getLoggerName(), record.getSourceMethodName(), record.getMessage());
 			return str;
+		}
+	}
+	
+	static private class MyConfigFormatter extends Formatter {
+		public MyConfigFormatter() {
+			super();
+		}
+		@Override
+		public String format(LogRecord record) {
+			return record.getMessage();
 		}
 	}
 

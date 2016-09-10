@@ -88,8 +88,13 @@ public class Executor {
 		
 		int c;
 		
+		try {
 		inStream = socket.getInputStream();
 		outStream = socket.getOutputStream();
+		} catch(IOException ex) {
+			logger.warning("Cannot get in/out stream of a socket: " + ex.getMessage());
+			throw ex;
+		}
 		
 		main_loop:
 		while (true) {

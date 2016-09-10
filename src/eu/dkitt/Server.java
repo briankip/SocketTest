@@ -69,7 +69,7 @@ public class Server {
 				e1.printStackTrace();
 				return;
 			}
-			logger.info("New client connected");
+			logger.fine("New client connected");
 			if(clientSocket!=null) {
 				// close previous socket - any worker associated with it will take care and die eventually...
 				try {clientSocket.close();} catch (IOException e) {}
@@ -82,21 +82,17 @@ public class Server {
 					public void run() {
 						try {
 							executor.execute();
-							logger.info("Client connection exited.");
 						} catch (IOException e) {
 							logger.info("Client connection exception: " + e.getMessage());
 						}
-						logger.info("Server loop terminated");
+						logger.fine("Connection to a client terminated");
 						Socket socket = executor.getSocket();
-						try {
-							socket.close();
-						} catch (IOException e) {
-							e.printStackTrace();
+						if(!socket.isClosed()){
+							try {socket.close();} catch (IOException e) {}
 						}
 					}
 				}, "Worker_"+(worker_counter++));
 			worker.start();
-			
 		}
 	}
 	

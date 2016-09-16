@@ -126,7 +126,10 @@ public class Executor {
 					}
 					if (c == ACK) {
 						logger.fine("<ACK> received - starting transfer phase (sender)");
-						transmit();
+						if( !transmit() ) {
+							timerBusy.start(30000);
+							logger.fine("Start busy timer");
+						}
 						logger.fine("Going idle");
 						continue main_loop; // stay in idle state
 					}
@@ -245,7 +248,7 @@ public class Executor {
 	}
 	
 	private boolean transmit() throws IOException {
-		
+		int nRetries;
 		if(!fileProcessor.hasFileToSend()){
 			logger.fine("There is no file to send - unexpected, sending <EOT>");
 			outStream.write(EOT);
@@ -269,6 +272,7 @@ public class Executor {
 		N_sent = 0;
 		frame_index = 1;	// first frame index will be 1
 		boolean bLastFrame;
+		nRetries = 0;
 	main_loop:
 		while(N_remain>0) {
 				
@@ -311,6 +315,7 @@ public class Executor {
 			socket.setSoTimeout(15000);
 			
 			// keep reading while not getting either a valid byte or a timeout
+			// or too many <NAK> responses.
 			int c;
 			while (true) {
 				try {
@@ -325,10 +330,16 @@ public class Executor {
 					N_remain -= N_2_send;
 					N_sent += N_2_send;
 					frame_index = (frame_index+1)%8;
+					nRetries = 0;
 					continue main_loop;	// continue sending frames
 				}
 				if (c == NAK) {
 					logger.info("<NAK> received - resending the last frame");
+					nRetries++;
+					if(nRetries > 6) {
+						logger.warning("Too many retires - giving up");
+						return false;
+					}
 					continue main_loop; // repeat sending last frame
 				}
 				if(c==-1) {

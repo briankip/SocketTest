@@ -2,3 +2,4 @@
 /testdata*/
 Architect RS232com.prot.pdf
 /*.log.[0-9]*
+/tmp/

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
 import java.util.Properties;
@@ -59,7 +58,6 @@ public class Executor {
 
 	private MyTimer	timerBusy;
 	private MyTimer timerContention;
-	private MyTimer	timerFrame;
 	
 	private	boolean bSimulator;
 	private Properties properties;
@@ -80,7 +78,6 @@ public class Executor {
 		this.bSimulator = bSimulator; 
 		timerBusy = new MyTimer(10000);
 		timerContention = new MyTimer(bSimulator?1000:20000);
-		timerFrame = new MyTimer(30000);
 		fileProcessor = new FileProcessor(properties);
 	}
 	
@@ -131,6 +128,7 @@ public class Executor {
 							logger.fine("Start busy timer");
 						}
 						logger.fine("Going idle");
+						outStream.write(EOT);
 						continue main_loop; // stay in idle state
 					}
 					if (c == NAK) {
@@ -181,7 +179,6 @@ public class Executor {
 
 	private void receive() throws IOException {
 		
-		
 		int i, c;
 		byte [] bytes = new byte[100000];
 		
@@ -193,6 +190,8 @@ public class Executor {
 			c =inStream.read();
 			if(c == EOT) {
 				logger.fine("<EOT> received - transfer terminated");
+				logger.fine("Writing a file");
+				fileProcessor.commitFile();
 				return;	// end of transmission
 			}
 			if(c != STX) {
@@ -211,6 +210,11 @@ public class Executor {
 			boolean bTerminal;
 			while(true) {
 				c = inStream.read();
+				if(c == -1) {
+					// socket was closed - there is no remedy - this thread must die !
+					logger.fine("Socket was close - this thread will give up ...");
+					return;
+				}
 				if( c != ETB && c != ETX ) {
 					bytes[i++] = (byte)c;
 					logger.finest("byte received : " + c);
@@ -235,29 +239,31 @@ public class Executor {
 			
 			fileProcessor.addOneFrame(bytes, i);
 			
-			if(bTerminal) {
-				logger.fine("Writing a file");
-				fileProcessor.commitFile();
-				fileProcessor.prepareForNextFile();
-			}
-				
 			outStream.write(ACK);
 			logger.fine("Frame confirmed by <ACK>");
 		}
 			
 	}
 	
+	/**
+	 * Execute the transmission phase as a sender.
+	 * The method does not care about the phase,
+	 * it is the responsibility of a caller to terminate the transfer phase
+	 * by <EOT> byte.<br/>
+	 * <EOT> must be send regardless of whether transmission succeeded or failed.
+	 * @return true in success, else it returns false and caller should insert a busy timer
+	 * @throws IOException
+	 */
 	private boolean transmit() throws IOException {
-		int nRetries;
 		if(!fileProcessor.hasFileToSend()){
-			logger.fine("There is no file to send - unexpected, sending <EOT>");
-			outStream.write(EOT);
-			return true;
+			logger.fine("There is no file to send - unexpected");
+			return false;
 		}
-		int N_remain, N_2_send, N_sent, frame_index, frame_summ;
+		int iStart, nLen, frame_index, nBytes;
+		boolean bTerminalFrame;
 		byte [] bytes;
 		try {
-			N_remain = fileProcessor.readFileData();
+			nBytes = fileProcessor.readFileData();
 		} catch (InvalidPathException e) {
 			logger.warning("Invalid path - " + e);
 			e.printStackTrace();
@@ -267,34 +273,74 @@ public class Executor {
 			e.printStackTrace();
 			return false;
 		}
-		logger.fine(N_remain + " bytes read from " + fileProcessor.getFileName());
+		logger.fine(" File to send: " + fileProcessor.getFileName());
 		bytes = fileProcessor.getData();
-		N_sent = 0;
-		frame_index = 1;	// first frame index will be 1
-		boolean bLastFrame;
-		nRetries = 0;
+		/** 
+		 * initialize starting condition
+		 */
+		iStart = 0;
+		nLen = 0;
+		frame_index = 0;
 	main_loop:
-		while(N_remain>0) {
-				
-			N_2_send = N_remain;
-			if(N_2_send > 240) {
-				N_2_send = 240;
+		while(true) {
+			frame_index++;
+			iStart += nLen;
+			while(true) {
+				if(iStart >= nBytes) {
+					break main_loop;
+				}
+				if(bytes[iStart]!=CR && bytes[iStart]!=LF)
+					break;
+				iStart++;
 			}
-			bLastFrame = N_remain <= 240;
-			
+			nLen = 1;
+			int i;
+			while(nLen < 240 && (i=iStart + nLen) < nBytes && bytes[i]!=CR && bytes[i]!=LF )
+				nLen++;
+			if(!(bTerminalFrame = (nLen<240))){
+				nLen = 239;
+			}
+			if(!sendOneFrame(bytes,iStart,nLen,frame_index,bTerminalFrame)) {
+				return false;
+			}
+		}
+		logger.fine("File was sent, move it to a backup directory");
+		fileProcessor.backupSentFile();
+		logger.info("File sent " + fileProcessor.getFileName());
+		return true;
+	}
+	
+	/**
+	 * Send one frame of data.
+	 * The array of bytes must not contain control bytes.
+	 * Number of bytes to write must be less than 240.
+	 * It is assumed that the array of bytes to write does not contain terminal <CR>
+	 * as it will be appended by the method.
+	 * @param data	array of bytes to write
+	 * @param offset	index of the starting byte in the array
+	 * @param len	number of bytes to write - must be in the range <1,239>
+	 * @param frame_index	index of the frame to send in the range <1,...). Method will calculate % 8.
+	 * @param bLastFrame	frame will be terminated either by <ETX> if true, else <ETB> will be used.
+	 * @return	true if frame was confirmed by the 
+	 * @throws IOException
+	 */
+	private boolean sendOneFrame(byte [] data, int offset, int len, int frame_index, boolean bLastFrame) throws IOException {
+		
+		int frame_summ;
+		int nRetries = 6;
+		frame_index %= 8; 
+		while((nRetries--)>0) {
 			outStream.write(STX);
 			outStream.write(48 + frame_index);
-			outStream.write(bytes, N_sent, N_2_send);
+			outStream.write(data, offset, len);
+			outStream.write(CR);
 			outStream.write(bLastFrame ? ETX : ETB);
-			
-			frame_summ = 48 + frame_index + (bLastFrame ? ETX : ETB);
-			for(int i=0; i<N_2_send; ++i){
-				frame_summ += 0xFF & (bytes[N_sent+i]);
+			frame_summ = 48 + frame_index + (bLastFrame ? ETX : ETB) + CR;
+			for(int i=0; i<len; ++i){
+				frame_summ += 0xFF & (data[offset+i]);
 			}
-			
 			int cs1 = (frame_summ & 0xF0)>>4;
 			int cs2 = frame_summ & 0x0F;
-			
 			if(cs1 < 10)
 				cs1 = 48 + cs1;
 			else
@@ -304,60 +350,42 @@ public class Executor {
 				cs2 = 48 + cs2;
 			else
 				cs2 = 65 + cs2-10;
-			
 			outStream.write(cs1);
 			outStream.write(cs2);
 			outStream.write(CR);
 			outStream.write(LF);
-			
-			logger.fine(N_2_send + " bytes sent");
-			
+			logger.fine("Frame " + frame_index + ": " +len + " bytes sent");
+			/**
+			 * Waiting for confirmation or until a timeout
+			 */
 			socket.setSoTimeout(15000);
-			
-			// keep reading while not getting either a valid byte or a timeout
-			// or too many <NAK> responses.
 			int c;
 			while (true) {
 				try {
 					c = inStream.read();
 				} catch (SocketTimeoutException ex) {
-					logger.warning("No reaction from the receiver - sending <EOT>");
-					outStream.write(EOT);
-					return false; // abort procedure
+					logger.warning("No reaction received - timeout");
+					return false;
 				}
 				if (c == ACK || c == EOT) {
-					logger.fine("<ACK> or <EOT> received : " + c);
-					N_remain -= N_2_send;
-					N_sent += N_2_send;
-					frame_index = (frame_index+1)%8;
-					nRetries = 0;
-					continue main_loop;	// continue sending frames
+					logger.fine( "Frame accepted by " + (c == ACK ? "<ACK>":"<EOT>"));
+					return true;
 				}
 				if (c == NAK) {
-					logger.info("<NAK> received - resending the last frame");
-					nRetries++;
-					if(nRetries > 6) {
-						logger.warning("Too many retires - giving up");
-						return false;
-					}
-					continue main_loop; // repeat sending last frame
+					logger.info("Frame rejected by <NAK>");
+					break;
 				}
-				if(c==-1) {
-					// socket was closed - there is no remedy - this thread must die !
-					logger.warning("Socket was close - this thread will give up ...");
+				if (c == -1) {
+					/**
+					 * socket was closed - there is no remedy - this thread must die
+					 */
+					logger.warning("Socket was closed - this thread will give up ...");
 					return false;
 				}
 			}
 		}
-		
-		logger.fine("File was sent, move it to a backup directory");
-		fileProcessor.backupSentFile();
-		logger.fine("Terminate transfer phase - sending <EOT> ");
-		outStream.write(EOT);
-		
-		logger.info("File sent " + fileProcessor.getFileName());
-		
-		return true;
+		logger.warning("Too many rejections - stop trying");
+		return false;
 	}
 
 }

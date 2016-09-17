@@ -79,6 +79,7 @@ public class FileProcessor implements FileVisitor<Path> {
 			outbuf[outbuf_index + i] = bytes[i];
 		}
 		outbuf_index += N;
+		outbuf[outbuf_index++] = Executor.LF;
 	}
 	/**
 	 * Generate a new output file name and write current frame cache to it.
